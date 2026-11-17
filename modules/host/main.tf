@@ -147,6 +147,8 @@ resource "terraform_data" "initial_readiness" {
         sleep 3
       done
       EOF
+      readiness_status=$?
+      [ "$readiness_status" -eq 0 ] || exit "$readiness_status"
       EOT
       ,
 
