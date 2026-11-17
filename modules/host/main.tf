@@ -116,6 +116,7 @@ resource "terraform_data" "initial_readiness" {
       # that unit is non-critical here and is managed explicitly later.
       <<-EOT
       timeout 600 bash <<'EOF'
+      set -o pipefail
       cloud_final_diagnostics_shown=false
       while true; do
         state="$(systemctl is-system-running 2>/dev/null || true)"
@@ -126,7 +127,10 @@ resource "terraform_data" "initial_readiness" {
 
         if [ "$state" = "degraded" ]; then
           systemctl reset-failed transactional-update.service >/dev/null 2>&1 || true
-          failed_units="$(systemctl --failed --no-legend --plain 2>/dev/null | awk '{print $1}' | grep -vx 'transactional-update.service' || true)"
+          if ! failed_units="$(systemctl --failed --no-legend --plain 2>/dev/null | awk '$1 != "transactional-update.service" {print $1}')"; then
+            echo "Failed to list failed units. Check systemctl and awk before retrying." >&2
+            exit 1
+          fi
 
           if [ -z "$failed_units" ]; then
             exit 0
